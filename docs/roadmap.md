@@ -56,12 +56,12 @@
 - [X] Протестировать все функции
 
 ### 1.3. Работа с прогрессом
-- [ ] Реализовать `save_task_answer(user_id, task_id, task_type, answer, is_correct)`
-- [ ] Реализовать `get_user_progress_stats(user_id)` - процент правильных ответов
-- [ ] Реализовать `get_completed_tasks_count(user_id)`
-- [ ] Реализовать `get_current_day_progress(user_id)` - сколько заданий выполнено сегодня
-- [ ] Реализовать логику перехода к следующему заданию
-- [ ] Протестировать логику переходов между днями и темами
+- [X] Реализовать `save_task_answer(user_id, task_id, task_type, answer, is_correct)`
+- [X] Реализовать `get_user_progress_stats(user_id)` - процент правильных ответов
+- [X] Реализовать `get_completed_tasks_count(user_id)`
+- [X] Реализовать `get_current_day_progress(user_id)` - сколько заданий выполнено сегодня
+- [X] Реализовать логику перехода к следующему заданию
+- [X] Протестировать логику переходов между днями и темами
 
 ### 1.4. Открытые вопросы
 - [ ] Реализовать `save_open_answer(user_id, task_id, question, user_answer)`

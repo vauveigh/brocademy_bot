@@ -151,6 +151,7 @@ python -m web.app
 - **[roadmap.md](docs/roadmap.md)** - 📋 Дорожная карта разработки (пошаговый план)
 - **[DATABASE_IMPLEMENTATION.md](docs/DATABASE_IMPLEMENTATION.md)** - ✅ Реализация SQLite базы данных (Этап 1.1)
 - **[CRUD_IMPLEMENTATION.md](docs/CRUD_IMPLEMENTATION.md)** - ✅ CRUD операции для пользователей (Этап 1.2)
+- **[PROGRESS_IMPLEMENTATION.md](docs/PROGRESS_IMPLEMENTATION.md)** - ✅ Работа с прогрессом пользователей (Этап 1.3)
 - **[NOTION_DB_STRUCTURE.md](docs/NOTION_DB_STRUCTURE.md)** - Детальная структура базы данных Notion
 - **[DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md)** - Схема SQLite базы данных
 - **[QUICK_START_NOTION.md](docs/QUICK_START_NOTION.md)** - Быстрый старт с Notion

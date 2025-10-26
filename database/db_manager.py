@@ -539,6 +539,377 @@ class DatabaseManager:
             raise
         finally:
             conn.close()
+    
+    # ==================== Работа с прогрессом ====================
+    
+    def save_task_answer(
+        self,
+        user_id: int,
+        task_id: str,
+        task_type: str,
+        answer: str,
+        is_correct: Optional[bool] = None
+    ) -> bool:
+        """
+        Сохранить ответ пользователя на задание.
+        
+        Args:
+            user_id: Telegram ID пользователя
+            task_id: ID задания из Notion
+            task_type: Тип задания (grammar/reading/vocabulary/situations/review)
+            answer: Ответ пользователя
+            is_correct: Правильность ответа (None для open_question)
+            
+        Returns:
+            True если ответ сохранен успешно
+            
+        Raises:
+            ValueError: Если task_type недопустим
+            sqlite3.Error: При ошибке БД
+            
+        Example:
+            >>> db = DatabaseManager()
+            >>> db.save_task_answer(123456789, "BEG-FAM-D1-G1", "grammar", "my", True)
+            True
+        """
+        # Валидация типа задания
+        valid_types = ["grammar", "reading", "vocabulary", "situations", "review"]
+        if task_type not in valid_types:
+            raise ValueError(f"Недопустимый тип задания: {task_type}. Допустимые: {valid_types}")
+        
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # Сохранить ответ в user_progress
+            cursor.execute("""
+                INSERT INTO user_progress (user_id, task_id, task_type, answer, is_correct)
+                VALUES (?, ?, ?, ?, ?)
+            """, (user_id, task_id, task_type, answer, is_correct))
+            
+            conn.commit()
+            
+            correct_status = "✅" if is_correct else "❌" if is_correct is False else "⏳"
+            logger.info(f"{correct_status} Сохранен ответ пользователя {user_id} на задание {task_id}")
+            return True
+            
+        except sqlite3.Error as e:
+            logger.error(f"❌ Ошибка при сохранении ответа пользователя {user_id}: {e}")
+            raise
+        finally:
+            conn.close()
+    
+    def get_user_progress_stats(self, user_id: int) -> Optional[dict]:
+        """
+        Получить статистику прогресса пользователя (только процент правильных ответов).
+        
+        Args:
+            user_id: Telegram ID пользователя
+            
+        Returns:
+            Словарь со статистикой или None если пользователь не найден
+            
+        Example:
+            >>> db = DatabaseManager()
+            >>> stats = db.get_user_progress_stats(123456789)
+            >>> print(f"Точность: {stats['accuracy']}%")
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # Проверить существование пользователя
+            cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,))
+            if not cursor.fetchone():
+                logger.info(f"Пользователь {user_id} не найден")
+                return None
+            
+            # Получить статистику по типам заданий
+            cursor.execute("""
+                SELECT 
+                    task_type,
+                    COUNT(*) as total,
+                    SUM(CASE WHEN is_correct = 1 THEN 1 ELSE 0 END) as correct,
+                    SUM(CASE WHEN is_correct = 0 THEN 1 ELSE 0 END) as incorrect,
+                    SUM(CASE WHEN is_correct IS NULL THEN 1 ELSE 0 END) as unchecked
+                FROM user_progress
+                WHERE user_id = ?
+                GROUP BY task_type
+            """, (user_id,))
+            
+            stats_by_type = {}
+            for row in cursor.fetchall():
+                task_type = row['task_type']
+                total = row['total']
+                correct = row['correct']
+                
+                accuracy = round((correct / total * 100), 2) if total > 0 else 0.0
+                
+                stats_by_type[task_type] = {
+                    'total': total,
+                    'correct': correct,
+                    'incorrect': row['incorrect'],
+                    'unchecked': row['unchecked'],
+                    'accuracy': accuracy
+                }
+            
+            # Общая статистика
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) as total,
+                    SUM(CASE WHEN is_correct = 1 THEN 1 ELSE 0 END) as correct,
+                    SUM(CASE WHEN is_correct = 0 THEN 1 ELSE 0 END) as incorrect,
+                    SUM(CASE WHEN is_correct IS NULL THEN 1 ELSE 0 END) as unchecked
+                FROM user_progress
+                WHERE user_id = ?
+            """, (user_id,))
+            
+            overall = cursor.fetchone()
+            total = overall['total'] or 0
+            correct = overall['correct'] or 0
+            
+            overall_accuracy = round((correct / total * 100), 2) if total > 0 else 0.0
+            
+            return {
+                'user_id': user_id,
+                'total_tasks': total,
+                'correct_tasks': correct,
+                'incorrect_tasks': overall['incorrect'] or 0,
+                'unchecked_tasks': overall['unchecked'] or 0,
+                'accuracy': overall_accuracy,
+                'by_type': stats_by_type
+            }
+            
+        except sqlite3.Error as e:
+            logger.error(f"❌ Ошибка при получении статистики прогресса {user_id}: {e}")
+            raise
+        finally:
+            conn.close()
+    
+    def get_completed_tasks_count(self, user_id: int) -> int:
+        """
+        Получить количество выполненных заданий пользователя.
+        
+        Args:
+            user_id: Telegram ID пользователя
+            
+        Returns:
+            Количество выполненных заданий
+            
+        Example:
+            >>> db = DatabaseManager()
+            >>> count = db.get_completed_tasks_count(123456789)
+            >>> print(f"Выполнено заданий: {count}")
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("""
+                SELECT COUNT(*) as count
+                FROM user_progress
+                WHERE user_id = ?
+            """, (user_id,))
+            
+            result = cursor.fetchone()
+            count = result['count'] if result else 0
+            
+            return count
+            
+        except sqlite3.Error as e:
+            logger.error(f"❌ Ошибка при подсчете заданий пользователя {user_id}: {e}")
+            raise
+        finally:
+            conn.close()
+    
+    def get_current_day_progress(self, user_id: int) -> Optional[dict]:
+        """
+        Получить прогресс выполнения заданий за текущий день.
+        
+        Args:
+            user_id: Telegram ID пользователя
+            
+        Returns:
+            Словарь с информацией о прогрессе или None если пользователь не найден
+            
+        Example:
+            >>> db = DatabaseManager()
+            >>> progress = db.get_current_day_progress(123456789)
+            >>> print(f"Выполнено сегодня: {progress['completed_today']}/3")
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # Получить информацию о пользователе
+            cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+            user = cursor.fetchone()
+            
+            if not user:
+                logger.info(f"Пользователь {user_id} не найден")
+                return None
+            
+            # Подсчитать задания выполненные сегодня
+            cursor.execute("""
+                SELECT COUNT(*) as count
+                FROM user_progress
+                WHERE user_id = ? AND DATE(answered_at) = CURRENT_DATE
+            """, (user_id,))
+            
+            result = cursor.fetchone()
+            completed_today = result['count'] if result else 0
+            
+            return {
+                'user_id': user_id,
+                'current_day': user['current_day'],
+                'current_theme': user['current_theme'],
+                'theme_order': user['theme_order'],
+                'task_in_day': user['task_in_day'],
+                'completed_today': completed_today,
+                'remaining_today': max(0, 3 - completed_today),
+                'last_task_date': user['last_task_date']
+            }
+            
+        except sqlite3.Error as e:
+            logger.error(f"❌ Ошибка при получении прогресса дня для {user_id}: {e}")
+            raise
+        finally:
+            conn.close()
+    
+    def advance_to_next_task(self, user_id: int) -> Optional[dict]:
+        """
+        Переход к следующему заданию с автоматической логикой переходов между днями и темами.
+        
+        Логика:
+        - Если task_in_day < 3: переход к следующему заданию в дне
+        - Если task_in_day = 3 и current_day < 5: переход к следующему дню
+        - Если task_in_day = 3 и current_day = 5: переход к новой теме
+        
+        Args:
+            user_id: Telegram ID пользователя
+            
+        Returns:
+            Словарь с новым состоянием или None если пользователь не найден
+            
+        Example:
+            >>> db = DatabaseManager()
+            >>> new_state = db.advance_to_next_task(123456789)
+            >>> print(f"Новое состояние: День {new_state['current_day']}, Задание {new_state['task_in_day']}")
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # Получить текущее состояние пользователя
+            cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+            user = cursor.fetchone()
+            
+            if not user:
+                logger.info(f"Пользователь {user_id} не найден")
+                return None
+            
+            current_day = user['current_day']
+            current_theme = user['current_theme']
+            theme_order = user['theme_order']
+            task_in_day = user['task_in_day']
+            
+            # Определить новое состояние
+            new_day = current_day
+            new_theme_order = theme_order
+            new_task = task_in_day
+            transition_type = None
+            
+            if task_in_day < 3:
+                # Следующее задание в текущем дне
+                new_task = task_in_day + 1
+                transition_type = "next_task"
+                logger.info(f"Пользователь {user_id}: переход к заданию {new_task}/3 в дне {current_day}")
+                
+            elif task_in_day == 3 and current_day < 5:
+                # Следующий день
+                new_day = current_day + 1
+                new_task = 1
+                transition_type = "next_day"
+                logger.info(f"Пользователь {user_id}: переход к дню {new_day}/5")
+                
+            elif task_in_day == 3 and current_day == 5:
+                # Новая тема
+                new_day = 1
+                new_task = 1
+                new_theme_order = theme_order + 1
+                transition_type = "next_theme"
+                logger.info(f"Пользователь {user_id}: переход к новой теме (порядок {new_theme_order})")
+            
+            # Обновить состояние в БД
+            cursor.execute("""
+                UPDATE users
+                SET current_day = ?,
+                    theme_order = ?,
+                    task_in_day = ?,
+                    last_task_date = CURRENT_DATE
+                WHERE user_id = ?
+            """, (new_day, new_theme_order, new_task, user_id))
+            
+            # Если переход на новую тему, сбросить current_theme (будет установлена при загрузке из Notion)
+            if transition_type == "next_theme":
+                cursor.execute("""
+                    UPDATE users
+                    SET current_theme = NULL
+                    WHERE user_id = ?
+                """, (user_id,))
+            
+            conn.commit()
+            
+            logger.info(f"✅ Пользователь {user_id}: переход выполнен ({transition_type})")
+            
+            return {
+                'user_id': user_id,
+                'previous_state': {
+                    'day': current_day,
+                    'theme_order': theme_order,
+                    'task': task_in_day
+                },
+                'new_state': {
+                    'day': new_day,
+                    'theme_order': new_theme_order,
+                    'task': new_task
+                },
+                'transition_type': transition_type,
+                'message': self._get_transition_message(transition_type, new_day, new_theme_order)
+            }
+            
+        except sqlite3.Error as e:
+            logger.error(f"❌ Ошибка при переходе к следующему заданию для {user_id}: {e}")
+            raise
+        finally:
+            conn.close()
+    
+    def _get_transition_message(self, transition_type: str, new_day: int, new_theme_order: int) -> str:
+        """
+        Получить сообщение о переходе для пользователя.
+        
+        Args:
+            transition_type: Тип перехода (next_task/next_day/next_theme)
+            new_day: Новый день
+            new_theme_order: Новый порядковый номер темы
+            
+        Returns:
+            Строка с сообщением
+        """
+        if transition_type == "next_task":
+            return f"Переходим к следующему заданию!"
+        elif transition_type == "next_day":
+            day_names = {
+                1: "Grammar (Грамматика)",
+                2: "Reading (Чтение)",
+                3: "Vocabulary (Словарный запас)",
+                4: "Situations (Жизненные ситуации)",
+                5: "Review (Повторение)"
+            }
+            return f"🎉 День завершен! Переходим к дню {new_day}: {day_names.get(new_day, 'Новый день')}"
+        elif transition_type == "next_theme":
+            return f"🎊 Тема завершена! Переходим к новой теме (#{new_theme_order})"
+        return "Переход выполнен"
 
 
 def init_database(db_path: str = "bot_database.db") -> None:
