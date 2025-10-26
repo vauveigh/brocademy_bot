@@ -7,8 +7,18 @@
 
 ## [Unreleased]
 
+### Added
+- SQLite база данных с 3 таблицами:
+  - users: информация о пользователях и прогрессе
+  - user_progress: история выполнения заданий
+  - user_answers: ответы на открытые вопросы
+- DatabaseManager класс для работы с БД
+- 8 индексов для оптимизации запросов
+- Функции инициализации и проверки БД
+- Тестовый скрипт для создания и проверки базы данных
+
 ### Planned
-- Этап 1: SQLite database implementation
+- Этап 1.2: CRUD операции для пользователей
 - Этап 2: Notion API integration
 - Этап 3: Basic bot functionality
 
