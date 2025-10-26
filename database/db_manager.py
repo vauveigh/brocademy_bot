@@ -910,6 +910,235 @@ class DatabaseManager:
         elif transition_type == "next_theme":
             return f"🎊 Тема завершена! Переходим к новой теме (#{new_theme_order})"
         return "Переход выполнен"
+    
+    # ==================== Открытые вопросы ====================
+    
+    def save_open_answer(
+        self,
+        user_id: int,
+        task_id: str,
+        question: str,
+        user_answer: str
+    ) -> bool:
+        """
+        Сохранить ответ на открытый вопрос для проверки преподавателем.
+        
+        Args:
+            user_id: Telegram ID пользователя
+            task_id: ID задания из Notion
+            question: Текст вопроса
+            user_answer: Ответ пользователя
+            
+        Returns:
+            True если ответ сохранен успешно
+            
+        Raises:
+            sqlite3.Error: При ошибке БД
+            
+        Example:
+            >>> db = DatabaseManager()
+            >>> db.save_open_answer(
+            ...     123456789,
+            ...     "BEG-FAM-D5-RV1",
+            ...     "Describe your family.",
+            ...     "My family is small and friendly."
+            ... )
+            True
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # Сохранить ответ в user_answers
+            cursor.execute("""
+                INSERT INTO user_answers (user_id, task_id, question, user_answer, checked)
+                VALUES (?, ?, ?, ?, 0)
+            """, (user_id, task_id, question, user_answer))
+            
+            conn.commit()
+            
+            logger.info(f"📝 Сохранен открытый ответ пользователя {user_id} на задание {task_id}")
+            return True
+            
+        except sqlite3.Error as e:
+            logger.error(f"❌ Ошибка при сохранении открытого ответа {user_id}: {e}")
+            raise
+        finally:
+            conn.close()
+    
+    def get_unchecked_answers(self, limit: Optional[int] = None) -> list:
+        """
+        Получить список непроверенных открытых ответов для веб-интерфейса.
+        
+        Args:
+            limit: Максимальное количество ответов (None = все)
+            
+        Returns:
+            Список словарей с непроверенными ответами
+            
+        Example:
+            >>> db = DatabaseManager()
+            >>> answers = db.get_unchecked_answers(limit=10)
+            >>> for answer in answers:
+            ...     print(f"User: {answer['user_id']}, Question: {answer['question']}")
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            query = """
+                SELECT 
+                    ua.id,
+                    ua.user_id,
+                    ua.task_id,
+                    ua.question,
+                    ua.user_answer,
+                    ua.created_at,
+                    u.username,
+                    u.level
+                FROM user_answers ua
+                LEFT JOIN users u ON ua.user_id = u.user_id
+                WHERE ua.checked = 0
+                ORDER BY ua.created_at ASC
+            """
+            
+            if limit:
+                query += f" LIMIT {limit}"
+            
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            
+            answers = []
+            for row in rows:
+                answers.append({
+                    'id': row['id'],
+                    'user_id': row['user_id'],
+                    'username': row['username'],
+                    'level': row['level'],
+                    'task_id': row['task_id'],
+                    'question': row['question'],
+                    'user_answer': row['user_answer'],
+                    'created_at': row['created_at']
+                })
+            
+            logger.info(f"📋 Получено {len(answers)} непроверенных ответов")
+            return answers
+            
+        except sqlite3.Error as e:
+            logger.error(f"❌ Ошибка при получении непроверенных ответов: {e}")
+            raise
+        finally:
+            conn.close()
+    
+    def mark_answer_as_checked(self, answer_id: int) -> bool:
+        """
+        Пометить открытый ответ как проверенный преподавателем.
+        
+        Args:
+            answer_id: ID ответа в таблице user_answers
+            
+        Returns:
+            True если ответ помечен, False если ответ не найден
+            
+        Example:
+            >>> db = DatabaseManager()
+            >>> db.mark_answer_as_checked(42)
+            True
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("""
+                UPDATE user_answers
+                SET checked = 1
+                WHERE id = ?
+            """, (answer_id,))
+            
+            if cursor.rowcount == 0:
+                logger.warning(f"Ответ с ID {answer_id} не найден")
+                return False
+            
+            conn.commit()
+            logger.info(f"✅ Ответ {answer_id} помечен как проверенный")
+            return True
+            
+        except sqlite3.Error as e:
+            logger.error(f"❌ Ошибка при пометке ответа {answer_id}: {e}")
+            raise
+        finally:
+            conn.close()
+    
+    def get_user_open_answers(
+        self,
+        user_id: int,
+        checked: Optional[bool] = None
+    ) -> list:
+        """
+        Получить все открытые ответы конкретного пользователя.
+        
+        Args:
+            user_id: Telegram ID пользователя
+            checked: Фильтр по статусу (True/False/None=все)
+            
+        Returns:
+            Список словарей с ответами пользователя
+            
+        Example:
+            >>> db = DatabaseManager()
+            >>> # Все непроверенные ответы пользователя
+            >>> unchecked = db.get_user_open_answers(123456789, checked=False)
+            >>> # Все ответы пользователя
+            >>> all_answers = db.get_user_open_answers(123456789)
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            query = """
+                SELECT 
+                    id,
+                    user_id,
+                    task_id,
+                    question,
+                    user_answer,
+                    created_at,
+                    checked
+                FROM user_answers
+                WHERE user_id = ?
+            """
+            
+            params = [user_id]
+            
+            if checked is not None:
+                query += " AND checked = ?"
+                params.append(1 if checked else 0)
+            
+            query += " ORDER BY created_at DESC"
+            
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            
+            answers = []
+            for row in rows:
+                answers.append({
+                    'id': row['id'],
+                    'user_id': row['user_id'],
+                    'task_id': row['task_id'],
+                    'question': row['question'],
+                    'user_answer': row['user_answer'],
+                    'created_at': row['created_at'],
+                    'checked': bool(row['checked'])
+                })
+            
+            logger.info(f"📋 Получено {len(answers)} ответов пользователя {user_id}")
+            return answers
+            
+        except sqlite3.Error as e:
+            logger.error(f"❌ Ошибка при получении ответов пользователя {user_id}: {e}")
+            raise
+        finally:
+            conn.close()
 
 
 def init_database(db_path: str = "bot_database.db") -> None:

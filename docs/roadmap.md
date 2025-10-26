@@ -64,10 +64,10 @@
 - [X] Протестировать логику переходов между днями и темами
 
 ### 1.4. Открытые вопросы
-- [ ] Реализовать `save_open_answer(user_id, task_id, question, user_answer)`
-- [ ] Реализовать `get_unchecked_answers()` - для веб-интерфейса
-- [ ] Реализовать `mark_answer_as_checked(answer_id)`
-- [ ] Реализовать `get_user_open_answers(user_id)`
+- [X] Реализовать `save_open_answer(user_id, task_id, question, user_answer)`
+- [X] Реализовать `get_unchecked_answers()` - для веб-интерфейса
+- [X] Реализовать `mark_answer_as_checked(answer_id)`
+- [X] Реализовать `get_user_open_answers(user_id)`
 
 ---
 
