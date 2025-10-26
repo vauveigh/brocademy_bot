@@ -1,0 +1,675 @@
+---
+description: Documentation standards and best practices for the project
+globs: 
+alwaysApply: true
+---
+# Documentation Standards and Best Practices
+
+This document outlines comprehensive standards for maintaining high-quality documentation throughout the project lifecycle.
+
+## 1. Core Documentation Files
+
+### 1.1. README.md (Project Root)
+
+**Must include:**
+- Project name and brief description (1-2 sentences)
+- Badges (build status, coverage, version, license)
+- Key features list
+- Prerequisites and system requirements
+- Installation instructions (step-by-step)
+- Quick start guide with basic usage examples
+- Link to full documentation
+- Contributing guidelines link
+- License information
+- Contact/support information
+
+**Example structure:**
+```markdown
+# Project Name
+
+Brief description of what the project does.
+
+## Features
+- Feature 1
+- Feature 2
+
+## Installation
+```bash
+pip install -r requirements.txt
+```
+
+## Quick Start
+```python
+from my_project import main
+main.run()
+```
+
+## Documentation
+See [docs/](docs/) for full documentation.
+
+## Contributing
+See [CONTRIBUTING.md](CONTRIBUTING.md)
+
+## License
+MIT License
+```
+
+### 1.2. CHANGELOG.md
+
+- Follow [Keep a Changelog](https://keepachangelog.com/) format
+- Include version numbers and dates
+- Categorize changes: Added, Changed, Deprecated, Removed, Fixed, Security
+- Update with every significant change
+- Use semantic versioning (MAJOR.MINOR.PATCH)
+
+**Example:**
+```markdown
+# Changelog
+
+## [Unreleased]
+### Added
+- New feature X
+
+## [1.2.0] - 2024-10-20
+### Added
+- Feature Y implementation
+### Fixed
+- Bug Z in module A
+```
+
+### 1.3. CONTRIBUTING.md
+
+**Should include:**
+- How to set up development environment
+- Code style guidelines
+- How to run tests
+- How to submit issues
+- Pull request process
+- Code review expectations
+- Community guidelines
+
+### 1.4. docs/ Directory Structure
+
+```
+docs/
+├── index.md              # Documentation home
+├── getting-started.md    # Installation and setup
+├── user-guide.md         # User documentation
+├── api-reference.md      # API documentation
+├── architecture.md       # System architecture
+├── development.md        # Development guide
+├── deployment.md         # Deployment guide
+├── troubleshooting.md    # Common issues and solutions
+├── faq.md               # Frequently asked questions
+└── adr/                 # Architecture Decision Records
+    ├── 0001-record-template.md
+    └── 0002-use-postgresql.md
+```
+
+## 2. Code Documentation Standards
+
+### 2.1. Module-Level Docstrings
+
+**Every Python file must have a module docstring:**
+
+```python
+"""
+Module name and brief description.
+
+This module provides functionality for X, Y, and Z.
+It is designed to be used in conjunction with module A.
+
+Example:
+    Basic usage example:
+    
+    >>> from my_module import function
+    >>> result = function(arg)
+    >>> print(result)
+
+Attributes:
+    MODULE_CONSTANT (int): Description of constant.
+    
+Author: Your Name
+Date: 2024-10-25
+"""
+```
+
+### 2.2. Function and Method Docstrings
+
+**Use Google-style or NumPy-style docstrings consistently:**
+
+**Google Style (preferred):**
+```python
+def function_name(param1: int, param2: str, param3: Optional[List[str]] = None) -> Dict[str, Any]:
+    """
+    Brief description of function (one line).
+    
+    Longer description if needed. Explain what the function does,
+    when to use it, and any important considerations.
+    
+    Args:
+        param1: Description of param1.
+        param2: Description of param2.
+        param3: Description of param3. Defaults to None.
+    
+    Returns:
+        Description of return value. Include type and structure.
+        
+    Raises:
+        ValueError: When param1 is negative.
+        TypeError: When param2 is not a string.
+        
+    Example:
+        >>> result = function_name(42, "test")
+        >>> print(result)
+        {'status': 'success', 'value': 42}
+        
+    Note:
+        Additional notes, warnings, or tips.
+        
+    See Also:
+        related_function: Related functionality.
+    """
+    pass
+```
+
+### 2.3. Class Docstrings
+
+```python
+class MyClass:
+    """
+    Brief description of the class.
+    
+    Longer description explaining the purpose of the class,
+    its responsibilities, and how it fits into the system.
+    
+    Attributes:
+        attr1 (str): Description of attr1.
+        attr2 (int): Description of attr2.
+        
+    Example:
+        >>> obj = MyClass("test", 42)
+        >>> obj.method()
+        'result'
+        
+    Note:
+        Important information about usage or limitations.
+    """
+    
+    def __init__(self, param1: str, param2: int):
+        """
+        Initialize the class.
+        
+        Args:
+            param1: Description of param1.
+            param2: Description of param2.
+        """
+        pass
+```
+
+### 2.4. Type Hints
+
+**Always use type hints:**
+- Use `typing` module for complex types
+- Include return type hints
+- Use `Optional[Type]` for optional parameters
+- Use `Union[Type1, Type2]` for multiple possible types
+- Use `List[Type]`, `Dict[KeyType, ValueType]`, etc.
+
+```python
+from typing import List, Dict, Optional, Union, Tuple
+
+def process_data(
+    items: List[str],
+    config: Dict[str, Any],
+    timeout: Optional[int] = None
+) -> Tuple[bool, str]:
+    """Process data with configuration."""
+    pass
+```
+
+## 3. Inline Comments Standards
+
+### 3.1. When to Comment
+
+**DO comment:**
+- Complex algorithms or logic
+- Non-obvious business rules
+- Workarounds for bugs or limitations
+- Performance-critical sections
+- Security-sensitive code
+- Regex patterns (explain what they match)
+- Magic numbers (though prefer named constants)
+
+**DON'T comment:**
+- Obvious code (code should be self-explanatory)
+- What the code does (use docstrings instead)
+- Commented-out code (use version control)
+- Redundant information
+
+### 3.2. Comment Style
+
+```python
+# Good: Explains WHY
+# Using binary search here because the list is always sorted
+# and can contain up to 1M items, making linear search too slow
+result = binary_search(sorted_list, target)
+
+# Bad: Explains WHAT (obvious from code)
+# Loop through items
+for item in items:
+    process(item)
+
+# Good: Complex logic explanation
+# Calculate compound interest: A = P(1 + r/n)^(nt)
+# where P=principal, r=rate, n=compounds per year, t=time
+amount = principal * (1 + rate / compounds) ** (compounds * years)
+
+# Good: TODO/FIXME/NOTE format
+# TODO(username): Add error handling for edge case X
+# FIXME: This breaks when input is empty (issue #123)
+# NOTE: This assumes timezone is UTC
+```
+
+## 4. API Documentation
+
+### 4.1. REST API Documentation
+
+**For each endpoint document:**
+- HTTP method and URL
+- Description
+- Authentication requirements
+- Request parameters (path, query, body)
+- Request examples
+- Response format
+- Response examples (success and error)
+- Status codes
+- Rate limiting information
+
+**Example:**
+```markdown
+### GET /api/users/{user_id}
+
+Retrieve user information by ID.
+
+**Authentication:** Bearer token required
+
+**Parameters:**
+- `user_id` (path, required): User's unique identifier
+
+**Query Parameters:**
+- `include_posts` (boolean, optional): Include user's posts. Default: false
+
+**Response 200:**
+```json
+{
+  "id": 123,
+  "username": "john_doe",
+  "email": "john@example.com",
+  "created_at": "2024-01-01T00:00:00Z"
+}
+```
+
+**Response 404:**
+```json
+{
+  "error": "User not found",
+  "code": "USER_NOT_FOUND"
+}
+```
+
+**Rate Limit:** 100 requests per minute
+```
+
+### 4.2. Use OpenAPI/Swagger
+
+- Generate OpenAPI specification for REST APIs
+- Keep spec in sync with implementation
+- Use tools like `flasgger` or `fastapi` (built-in OpenAPI)
+
+## 5. Architecture Documentation
+
+### 5.1. Architecture Decision Records (ADR)
+
+**Create ADR for significant decisions:**
+
+**Template (docs/adr/NNNN-title.md):**
+```markdown
+# ADR-0001: Use PostgreSQL as Primary Database
+
+## Status
+Accepted
+
+## Context
+We need to choose a database for our application that supports
+complex queries, ACID transactions, and can scale to millions of records.
+
+## Decision
+We will use PostgreSQL as our primary database.
+
+## Consequences
+
+### Positive
+- Strong ACID compliance
+- Rich query capabilities
+- Excellent community support
+- Good Python library support (psycopg2)
+
+### Negative
+- More complex setup than SQLite
+- Requires dedicated server infrastructure
+- Higher operational overhead
+
+## Alternatives Considered
+- MySQL: Less feature-rich for complex queries
+- MongoDB: Not suitable for our relational data model
+- SQLite: Cannot handle our expected scale
+```
+
+### 5.2. System Architecture Document
+
+**docs/architecture.md should include:**
+- System overview and goals
+- High-level architecture diagram
+- Component descriptions
+- Data flow diagrams
+- Technology stack
+- External dependencies
+- Security architecture
+- Scalability considerations
+- Deployment architecture
+
+## 6. Documentation Maintenance Rules
+
+### 6.1. Keep Documentation In Sync
+
+**MANDATORY rules:**
+- Update README.md when adding major features
+- Update CHANGELOG.md with every commit to main/master
+- Update API docs when changing endpoints
+- Update docstrings when changing function signatures
+- Review and update docs during code review
+- Set documentation as a required checklist item for PRs
+
+### 6.2. Documentation in Pull Requests
+
+**Every PR must include:**
+- Updated docstrings for new/modified functions
+- Updated README if user-facing changes
+- Updated CHANGELOG entry
+- Updated API docs if applicable
+- Examples for new features
+
+**PR description should include:**
+```markdown
+## Changes
+- List of changes
+
+## Documentation Updates
+- [ ] Docstrings updated
+- [ ] README updated (if needed)
+- [ ] CHANGELOG updated
+- [ ] API docs updated (if needed)
+- [ ] Examples added/updated (if needed)
+
+## Testing
+- How this was tested
+```
+
+### 6.3. Version Documentation
+
+- Tag documentation with version numbers
+- Maintain docs for at least 2 previous major versions
+- Clearly indicate deprecated features
+- Provide migration guides for breaking changes
+
+## 7. Examples and Tutorials
+
+### 7.1. Code Examples
+
+**Every feature should have:**
+- Basic usage example
+- Advanced usage example
+- Common patterns
+- Error handling example
+
+**Example location:**
+- In docstrings (simple examples)
+- In `examples/` directory (complex examples)
+- In documentation (tutorials)
+
+### 7.2. Example Files Structure
+
+```
+examples/
+├── README.md              # Overview of examples
+├── basic/
+│   ├── hello_world.py
+│   └── simple_usage.py
+├── advanced/
+│   ├── custom_configuration.py
+│   └── error_handling.py
+└── integration/
+    ├── with_database.py
+    └── with_api.py
+```
+
+### 7.3. Tutorial Structure
+
+**Each tutorial should:**
+1. State learning objectives
+2. List prerequisites
+3. Provide step-by-step instructions
+4. Include code snippets with explanations
+5. Show expected output
+6. Provide troubleshooting tips
+7. Link to related tutorials
+
+## 8. Special Documentation Types
+
+### 8.1. Environment Variables
+
+**Document all environment variables:**
+
+```markdown
+## Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DATABASE_URL` | Yes | - | PostgreSQL connection string |
+| `API_KEY` | Yes | - | API authentication key |
+| `DEBUG` | No | `false` | Enable debug mode |
+| `LOG_LEVEL` | No | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR) |
+```
+
+### 8.2. Configuration Files
+
+**Document all configuration options:**
+
+```python
+# config.py
+"""
+Configuration module.
+
+Configuration can be provided via:
+1. Environment variables (highest priority)
+2. config.yaml file
+3. Default values (lowest priority)
+
+Example config.yaml:
+    database:
+      host: localhost
+      port: 5432
+      name: mydb
+    
+    api:
+      timeout: 30
+      max_retries: 3
+"""
+```
+
+### 8.3. Error Messages and Codes
+
+**Maintain error code documentation:**
+
+```markdown
+## Error Codes
+
+| Code | HTTP Status | Description | Resolution |
+|------|-------------|-------------|------------|
+| `AUTH_001` | 401 | Invalid token | Re-authenticate |
+| `DATA_002` | 400 | Invalid input | Check input format |
+| `SYS_003` | 500 | Database error | Contact support |
+```
+
+## 9. Documentation Tools
+
+### 9.1. Recommended Tools
+
+- **Sphinx**: Generate HTML documentation from docstrings
+- **MkDocs**: Create beautiful documentation sites
+- **pdoc**: Auto-generate API documentation
+- **pydoc**: Built-in documentation generator
+- **Read the Docs**: Host documentation online
+
+### 9.2. Documentation Generation
+
+**Set up automatic doc generation:**
+
+```bash
+# Install Sphinx
+pip install sphinx sphinx-rtd-theme
+
+# Generate docs
+cd docs/
+sphinx-apidoc -o source/ ../src/
+make html
+```
+
+### 9.3. Documentation Testing
+
+**Test code examples in documentation:**
+- Use `doctest` to test docstring examples
+- Use `pytest` with `--doctest-modules` flag
+- Include documentation build in CI/CD pipeline
+
+## 10. Internationalization (i18n)
+
+### 10.1. Multi-language Documentation
+
+**If supporting multiple languages:**
+- Create language-specific directories (e.g., `docs/en/`, `docs/ru/`)
+- Keep same structure across languages
+- Link between language versions
+- Keep English as the source of truth
+
+## 11. Documentation Review Checklist
+
+Before considering documentation complete, verify:
+
+- [ ] README.md is up-to-date
+- [ ] CHANGELOG.md includes latest changes
+- [ ] All functions have docstrings
+- [ ] All classes have docstrings
+- [ ] All modules have docstrings
+- [ ] Type hints are present
+- [ ] Examples are provided and tested
+- [ ] API documentation is accurate
+- [ ] Architecture docs reflect current state
+- [ ] No broken links
+- [ ] Code examples actually run
+- [ ] Error messages are documented
+- [ ] Configuration options are documented
+- [ ] Environment variables are documented
+
+## 12. Documentation Anti-Patterns
+
+### 12.1. Avoid These Mistakes
+
+**❌ DON'T:**
+- Write documentation after the fact (write as you code)
+- Copy-paste documentation without updating
+- Use vague descriptions ("this function does stuff")
+- Document implementation details (document interface)
+- Let documentation become outdated
+- Write documentation that duplicates the code
+- Use "TODO" without a deadline or assignee
+- Assume knowledge (explain acronyms and context)
+
+**✅ DO:**
+- Write documentation as you write code
+- Be specific and precise
+- Focus on WHY and WHEN, not just WHAT
+- Keep it DRY (Don't Repeat Yourself)
+- Regular documentation audits
+- Make documentation searchable
+- Use consistent terminology
+- Provide context and examples
+
+## 13. Documentation Metrics
+
+### 13.1. Measure Documentation Quality
+
+**Track these metrics:**
+- Docstring coverage (% of functions with docstrings)
+- Type hint coverage
+- API documentation completeness
+- Example code test pass rate
+- Documentation build success rate
+- Dead link count
+
+**Tools:**
+- `interrogate` - check docstring coverage
+- `mypy` - check type hint coverage
+- `sphinx-build` - documentation build
+
+### 13.2. Set Standards
+
+**Minimum requirements:**
+- 90%+ docstring coverage for public API
+- 100% type hint coverage
+- Zero broken links
+- All examples must pass tests
+
+## 14. Integration with Development Workflow
+
+### 14.1. Pre-commit Hooks
+
+**Add documentation checks:**
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: local
+    hooks:
+      - id: check-docstrings
+        name: Check docstring coverage
+        entry: interrogate
+        language: system
+        types: [python]
+        args: [--fail-under=90]
+```
+
+### 14.2. CI/CD Pipeline
+
+**Include in pipeline:**
+1. Build documentation
+2. Test code examples
+3. Check for broken links
+4. Verify docstring coverage
+5. Deploy documentation to hosting
+
+## 15. Best Practices Summary
+
+**Golden rules:**
+1. **Documentation is code** - treat it with the same care
+2. **Write for humans** - be clear, concise, and helpful
+3. **Show, don't just tell** - include examples
+4. **Keep it fresh** - update with every change
+5. **Make it discoverable** - good structure and search
+6. **Test your docs** - ensure examples work
+7. **Get feedback** - documentation is for users
+8. **Automate** - use tools to generate and validate
+
+---
+
+**Remember:** Good documentation is a sign of a professional project. It's not optional—it's essential.
