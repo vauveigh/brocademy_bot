@@ -303,19 +303,23 @@
   - [X] "🔄 Прогресс сброшен. Начинаем с темы #1."
   - [X] Предложить: "Готовы начать? /task"
 
-### 3.12. Проверка дневного лимита
-- [ ] Создать функцию `can_get_task(user_id) -> tuple[bool, str]`
-- [ ] Проверить количество выполненных заданий за день
-- [ ] Если >= 3: вернуть (False, сообщение об ограничении)
-- [ ] Если < 3: вернуть (True, None)
-- [ ] Использовать эту функцию в handler /task
+### 3.12. Проверка дневного лимита ✅
+- [X] Создать функцию `can_get_task(user_id) -> tuple[bool, str]`
+- [X] Проверить количество выполненных заданий за день
+- [X] Если >= 3: вернуть (False, сообщение об ограничении)
+- [X] Если < 3: вернуть (True, None)
+- [X] Использовать эту функцию в handler /task
 
-### 3.13. Вспомогательные функции
-- [ ] Создать `get_day_name(day: int) -> str` - название дня (Grammar, Reading, etc.)
-- [ ] Создать `format_statistics(stats: dict) -> str` - форматирование статистики
-- [ ] Создать `format_task_message(task: dict, current_day: int, task_in_day: int) -> str`
-- [ ] Создать `format_day_completion_message(stats: dict, next_day: int) -> str`
-- [ ] Создать `format_theme_completion_message(stats: dict, next_theme: str) -> str`
+### 3.13. Вспомогательные функции ✅
+- [X] Создать `get_day_name(day: int) -> str` - название дня (Grammar, Reading, etc.)
+- [X] Создать `format_statistics(stats: dict) -> str` - форматирование статистики
+- [X] Создать `format_task_message(task: dict, current_day: int, task_in_day: int) -> str`
+- [X] Создать `format_day_completion_message(stats: dict, next_day: int) -> str`
+- [X] Создать `format_theme_completion_message(stats: dict, next_theme: str) -> str`
+- [X] Добавить `get_motivational_message(is_correct: bool) -> str` - мотивационные сообщения
+- [X] Добавить `format_user_info(user: dict) -> str` - форматирование информации о пользователе
+- [X] Добавить `validate_level(level: str) -> bool` - валидация уровня
+- [X] Добавить `get_level_emoji(level: str) -> str` - эмодзи для уровня
 
 ### 3.14. Обработка медиа из Notion
 - [ ] Проверить наличие поля "URL медиа" в задании
@@ -326,13 +330,13 @@
   - [ ] Если video: bot.send_video()
 - [ ] Обработать ошибку загрузки медиа (неверный URL, файл недоступен)
 
-### 3.15. Middleware и обработка ошибок
-- [ ] Создать middleware для логирования всех сообщений пользователей
-- [ ] Создать middleware для отслеживания времени выполнения handlers
-- [ ] Создать error handler для всех необработанных исключений
-- [ ] Логировать ошибки в файл с деталями (user_id, команда, traceback)
-- [ ] Отправлять пользователю дружелюбное сообщение об ошибке
-- [ ] Уведомлять админа о критических ошибках (опционально)
+### 3.15. Middleware и обработка ошибок ✅
+- [X] Создать middleware для логирования всех сообщений пользователей
+- [X] Создать middleware для отслеживания времени выполнения handlers
+- [X] Создать error handler для всех необработанных исключений
+- [X] Логировать ошибки в файл с деталями (user_id, команда, traceback)
+- [X] Отправлять пользователю дружелюбное сообщение об ошибке
+- [X] Уведомлять админа о критических ошибках
 
 ---
 

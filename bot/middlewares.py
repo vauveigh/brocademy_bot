@@ -151,6 +151,7 @@ class ErrorHandlerMiddleware(BaseMiddleware):
     При возникновении необработанного исключения:
     - Логирует детали ошибки
     - Отправляет пользователю дружелюбное сообщение
+    - Уведомляет админа о критических ошибках
     - Не прерывает работу бота
     
     Example:
@@ -178,7 +179,28 @@ class ErrorHandlerMiddleware(BaseMiddleware):
             return await handler(event, data)
             
         except Exception as e:
-            logger.error(f"❌ Unhandled error: {e}", exc_info=True)
+            # Извлекаем информацию о пользователе и событии
+            user = None
+            event_type = "unknown"
+            event_data = "N/A"
+            
+            if isinstance(event, Message):
+                user = event.from_user
+                event_type = "message"
+                event_data = event.text or event.caption or "<non-text>"
+            elif isinstance(event, CallbackQuery):
+                user = event.from_user
+                event_type = "callback"
+                event_data = event.data
+            
+            # Логируем с полной информацией
+            logger.error(
+                f"❌ Unhandled error in {event_type} handler\n"
+                f"User: {user.id if user else 'Unknown'} (@{user.username if user else 'Unknown'})\n"
+                f"Event data: {event_data}\n"
+                f"Error: {e}",
+                exc_info=True
+            )
             
             # Отправляем пользователю дружелюбное сообщение
             error_message = (
@@ -197,5 +219,65 @@ class ErrorHandlerMiddleware(BaseMiddleware):
                 # Даже если не удалось отправить сообщение, не падаем
                 pass
             
+            # Уведомляем админов о критической ошибке
+            await self._notify_admins_about_error(event, e, user, event_type, event_data, data)
+            
             return None
+    
+    async def _notify_admins_about_error(
+        self,
+        event: TelegramObject,
+        error: Exception,
+        user: Any,
+        event_type: str,
+        event_data: str,
+        data: Dict[str, Any]
+    ) -> None:
+        """
+        Уведомить админов о критической ошибке.
+        
+        Args:
+            event: Событие, вызвавшее ошибку
+            error: Исключение
+            user: Пользователь (если есть)
+            event_type: Тип события
+            event_data: Данные события
+            data: Дополнительные данные
+        """
+        try:
+            from config.config import config
+            
+            # Проверяем, есть ли админы в конфиге
+            if not config.ADMIN_USER_IDS:
+                return
+            
+            # Получаем бота из data
+            bot = data.get("bot")
+            if not bot:
+                return
+            
+            # Формируем сообщение об ошибке
+            import traceback
+            
+            error_report = (
+                "🚨 <b>КРИТИЧЕСКАЯ ОШИБКА В БОТЕ</b>\n\n"
+                f"<b>Тип события:</b> {event_type}\n"
+                f"<b>Пользователь:</b> {user.id if user else 'Unknown'} "
+                f"(@{user.username if user else 'Unknown'})\n"
+                f"<b>Данные:</b> <code>{event_data[:100]}</code>\n\n"
+                f"<b>Ошибка:</b>\n<code>{str(error)[:200]}</code>\n\n"
+                f"<b>Traceback:</b>\n<code>{traceback.format_exc()[:500]}</code>"
+            )
+            
+            # Отправляем всем админам
+            for admin_id in config.ADMIN_USER_IDS:
+                try:
+                    await bot.send_message(admin_id, error_report)
+                    logger.info(f"✉️ Error notification sent to admin {admin_id}")
+                except Exception as send_error:
+                    logger.error(f"Failed to notify admin {admin_id}: {send_error}")
+                    
+        except Exception as notify_error:
+            # Если не удалось уведомить админов, просто логируем
+            logger.error(f"Failed to notify admins: {notify_error}")
 

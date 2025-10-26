@@ -7,7 +7,7 @@ Author: Vladimir
 Date: 2024-10-26
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Tuple, Optional
 
 
 def get_day_name(day: int) -> str:
@@ -224,4 +224,165 @@ def format_theme_completion_message(
         )
     
     return message
+
+
+def can_get_task(user_id: int) -> Tuple[bool, Optional[str]]:
+    """
+    Проверить, может ли пользователь получить новое задание.
+    
+    Проверяет дневной лимит (3 задания в день).
+    
+    Args:
+        user_id: ID пользователя
+        
+    Returns:
+        Tuple[bool, Optional[str]]: (можно получить задание, сообщение об ошибке)
+        - (True, None) если можно получить задание
+        - (False, "сообщение") если достигнут лимит
+        
+    Example:
+        >>> can_get, message = can_get_task(user_id)
+        >>> if not can_get:
+        ...     await message.answer(message)
+        ...     return
+    """
+    from database.db_manager import DatabaseManager
+    from config.config import config
+    
+    db = DatabaseManager(config.SQLITE_DB_PATH)
+    
+    # Проверяем, зарегистрирован ли пользователь
+    user = db.get_user(user_id)
+    if not user:
+        return False, (
+            "❌ Вы не зарегистрированы!\n\n"
+            "Используйте команду /start для регистрации."
+        )
+    
+    # Проверяем дневной лимит
+    progress = db.get_current_day_progress(user_id)
+    
+    if progress and progress['completed_today'] >= 3:
+        return False, (
+            "✅ <b>Отлично! Вы уже выполнили все задания на сегодня!</b>\n\n"
+            f"📊 Выполнено: {progress['completed_today']}/3\n"
+            f"🌙 Увидимся завтра! Напишу в 9:00 ⏰\n\n"
+            f"💡 Вы можете:\n"
+            f"• Посмотреть прогресс: /progress\n"
+            f"• Проверить свои ответы: /my_answers"
+        )
+    
+    return True, None
+
+
+def get_motivational_message(is_correct: bool) -> str:
+    """
+    Получить случайное мотивационное сообщение.
+    
+    Args:
+        is_correct: True для правильного ответа, False для неправильного
+        
+    Returns:
+        Мотивационное сообщение
+        
+    Example:
+        >>> msg = get_motivational_message(True)
+        >>> print(msg)  # "Отличная работа! 🌟"
+    """
+    import random
+    
+    if is_correct:
+        positive_messages = [
+            "Отличная работа! 🌟",
+            "Превосходно! 🎉",
+            "Вы молодец! 👏",
+            "Великолепно! ✨",
+            "Так держать! 💪",
+            "Прекрасный результат! 🎯",
+            "Вы на верном пути! 🚀",
+            "Браво! 👍",
+            "Замечательно! 🎊",
+            "Продолжайте в том же духе! 🔥"
+        ]
+        return random.choice(positive_messages)
+    else:
+        supportive_messages = [
+            "Не переживайте, все учатся на ошибках! 💪",
+            "Ничего страшного, продолжайте практиковаться! 📚",
+            "Каждая ошибка - шаг к успеху! 🌱",
+            "Не сдавайтесь, у вас всё получится! 🎯",
+            "Ошибки помогают нам расти! 🌟",
+            "Главное - не останавливаться! 🚀",
+            "Учимся и двигаемся дальше! 💫",
+            "С каждым разом будет легче! 📈"
+        ]
+        return random.choice(supportive_messages)
+
+
+def format_user_info(user: Dict[str, Any]) -> str:
+    """
+    Форматировать информацию о пользователе.
+    
+    Args:
+        user: Словарь с данными пользователя из БД
+        
+    Returns:
+        Отформатированная строка с информацией
+        
+    Example:
+        >>> user = db.get_user(user_id)
+        >>> info = format_user_info(user)
+    """
+    return (
+        f"👤 <b>Пользователь:</b> @{user['username'] or 'без username'}\n"
+        f"🆔 <b>ID:</b> <code>{user['user_id']}</code>\n"
+        f"📚 <b>Уровень:</b> {user['level']}\n"
+        f"📖 <b>Тема:</b> {user['current_theme'] or 'Не начата'}\n"
+        f"📅 <b>День:</b> {user['current_day']}/5\n"
+        f"📝 <b>Задание:</b> {user['task_in_day']}/3\n"
+        f"📆 <b>Начал:</b> {user['started_at'][:10]}\n"
+        f"🕐 <b>Последнее задание:</b> {user['last_task_date'] or 'Нет'}"
+    )
+
+
+def validate_level(level: str) -> bool:
+    """
+    Проверить корректность уровня сложности.
+    
+    Args:
+        level: Строка с уровнем
+        
+    Returns:
+        True если уровень валиден, False иначе
+        
+    Example:
+        >>> validate_level("Beginner")
+        True
+        >>> validate_level("Invalid")
+        False
+    """
+    valid_levels = ["Beginner", "Elementary", "Advanced"]
+    return level in valid_levels
+
+
+def get_level_emoji(level: str) -> str:
+    """
+    Получить эмодзи для уровня.
+    
+    Args:
+        level: Уровень сложности
+        
+    Returns:
+        Эмодзи для уровня
+        
+    Example:
+        >>> emoji = get_level_emoji("Beginner")
+        >>> print(emoji)  # "🟢"
+    """
+    emoji_map = {
+        "Beginner": "🟢",
+        "Elementary": "🟡",
+        "Advanced": "🔴"
+    }
+    return emoji_map.get(level, "⚪")
 

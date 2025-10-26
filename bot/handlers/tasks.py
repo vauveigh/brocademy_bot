@@ -46,34 +46,20 @@ async def cmd_task(message: Message, state: FSMContext) -> None:
         message: Входящее сообщение
         state: FSM context
     """
+    from bot.utils import can_get_task
+    
     user_id = message.from_user.id
-    db = DatabaseManager(config.SQLITE_DB_PATH)
     
-    # Проверяем, зарегистрирован ли пользователь
-    user = db.get_user(user_id)
-    if not user:
-        await message.answer(
-            "❌ Вы не зарегистрированы!\n\n"
-            "Используйте команду /start для регистрации."
-        )
-        return
+    # Используем новую функцию проверки лимита
+    can_get, error_message = can_get_task(user_id)
     
-    # Проверяем дневной лимит
-    progress = db.get_current_day_progress(user_id)
-    
-    if progress and progress['completed_today'] >= 3:
-        # Лимит достигнут
-        await message.answer(
-            "✅ <b>Отлично! Вы уже выполнили все задания на сегодня!</b>\n\n"
-            f"📊 Выполнено: {progress['completed_today']}/3\n"
-            f"🌙 Увидимся завтра! Напишу в 9:00 ⏰\n\n"
-            f"💡 Вы можете:\n"
-            f"• Посмотреть прогресс: /progress\n"
-            f"• Проверить свои ответы: /my_answers"
-        )
+    if not can_get:
+        await message.answer(error_message)
         return
     
     # Получаем задание
+    db = DatabaseManager(config.SQLITE_DB_PATH)
+    user = db.get_user(user_id)
     await send_current_task(message, state, user, db)
 
 
@@ -236,17 +222,23 @@ async def process_multiple_choice_answer(
     # Убираем кнопки (чтобы нельзя было ответить повторно)
     await callback.message.edit_reply_markup(reply_markup=remove_keyboard())
     
-    # Формируем feedback сообщение
+    # Формируем feedback сообщение с мотивацией
+    from bot.utils import get_motivational_message
+    
+    motivation = get_motivational_message(is_correct)
+    
     if is_correct:
         feedback = (
-            "✅ <b>Правильно! Отлично!</b> 🎉\n\n"
-            f"Ваш ответ: <b>{user_answer}</b>"
+            f"✅ <b>Правильно!</b> 🎉\n\n"
+            f"Ваш ответ: <b>{user_answer}</b>\n\n"
+            f"💬 {motivation}"
         )
     else:
         feedback = (
             f"❌ <b>Неправильно</b>\n\n"
             f"Ваш ответ: <b>{user_answer}</b>\n"
-            f"Правильный ответ: <b>{task.correct_answer}</b>"
+            f"Правильный ответ: <b>{task.correct_answer}</b>\n\n"
+            f"💬 {motivation}"
         )
     
     # Добавляем объяснение, если есть
