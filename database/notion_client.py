@@ -621,6 +621,217 @@ class NotionClient:
             logger.error(f"❌ Failed to get theme info: {e}")
             return None
     
+    def get_next_theme_order(self, level: str, current_theme_order: int) -> Optional[int]:
+        """
+        Получить номер следующей темы.
+        
+        Args:
+            level: Уровень сложности
+            current_theme_order: Текущий порядковый номер темы
+            
+        Returns:
+            Номер следующей темы или None если тем больше нет.
+            
+        Example:
+            >>> notion = NotionClient()
+            >>> next_theme = notion.get_next_theme_order("Beginner", 1)
+            >>> if next_theme:
+            ...     print(f"Next theme order: {next_theme}")
+            ... else:
+            ...     print("No more themes available")
+        """
+        try:
+            # Ищем темы с порядком больше текущего
+            filter_query = {
+                "and": [
+                    {"property": "Уровень", "select": {"equals": level}},
+                    {"property": "Порядок темы", "number": {"greater_than": current_theme_order}},
+                    {"property": "Статус", "select": {"equals": "active"}}
+                ]
+            }
+            
+            # Сортируем по возрастанию и берем первую
+            response = self.client.databases.query(
+                database_id=self.database_id,
+                filter=filter_query,
+                sorts=[{"property": "Порядок темы", "direction": "ascending"}],
+                page_size=1
+            )
+            
+            results = response.get("results", [])
+            
+            if not results:
+                logger.info(
+                    f"ℹ️ No more themes after order {current_theme_order} "
+                    f"for level {level}"
+                )
+                return None
+            
+            # Извлекаем номер следующей темы
+            page = results[0]
+            properties = page.get("properties", {})
+            next_order = self._extract_number(properties.get("Порядок темы", {}))
+            
+            logger.info(
+                f"➡️ Next theme order: {next_order} "
+                f"(after {current_theme_order}, level {level})"
+            )
+            return next_order
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to get next theme order: {e}")
+            return None
+    
+    def get_available_themes_count(self, level: str) -> int:
+        """
+        Получить количество доступных тем для уровня.
+        
+        Args:
+            level: Уровень сложности
+            
+        Returns:
+            Количество уникальных тем для данного уровня.
+            
+        Example:
+            >>> notion = NotionClient()
+            >>> count = notion.get_available_themes_count("Beginner")
+            >>> print(f"Available themes: {count}")
+        """
+        try:
+            # Получаем все активные задания этого уровня
+            filter_query = {
+                "and": [
+                    {"property": "Уровень", "select": {"equals": level}},
+                    {"property": "Статус", "select": {"equals": "active"}}
+                ]
+            }
+            
+            response = self.client.databases.query(
+                database_id=self.database_id,
+                filter=filter_query
+            )
+            
+            # Собираем уникальные theme_order
+            theme_orders = set()
+            for page in response.get("results", []):
+                properties = page.get("properties", {})
+                theme_order = self._extract_number(properties.get("Порядок темы", {}))
+                if theme_order > 0:
+                    theme_orders.add(theme_order)
+            
+            # Обрабатываем пагинацию
+            while response.get("has_more"):
+                response = self.client.databases.query(
+                    database_id=self.database_id,
+                    filter=filter_query,
+                    start_cursor=response.get("next_cursor")
+                )
+                
+                for page in response.get("results", []):
+                    properties = page.get("properties", {})
+                    theme_order = self._extract_number(properties.get("Порядок темы", {}))
+                    if theme_order > 0:
+                        theme_orders.add(theme_order)
+            
+            count = len(theme_orders)
+            logger.info(f"📚 Available themes for {level}: {count}")
+            return count
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to count available themes: {e}")
+            return 0
+    
+    def get_all_themes_for_level(self, level: str) -> List[Dict[str, Any]]:
+        """
+        Получить список всех тем для уровня с их информацией.
+        
+        Args:
+            level: Уровень сложности
+            
+        Returns:
+            Список словарей с информацией о каждой теме:
+            [
+                {
+                    "theme_name": "Family and Friends",
+                    "theme_order": 1,
+                    "level": "Beginner",
+                    "total_tasks": 15
+                },
+                ...
+            ]
+            
+        Example:
+            >>> notion = NotionClient()
+            >>> themes = notion.get_all_themes_for_level("Beginner")
+            >>> for theme in themes:
+            ...     print(f"{theme['theme_order']}. {theme['theme_name']} ({theme['total_tasks']} tasks)")
+        """
+        try:
+            # Получаем все активные задания этого уровня
+            filter_query = {
+                "and": [
+                    {"property": "Уровень", "select": {"equals": level}},
+                    {"property": "Статус", "select": {"equals": "active"}}
+                ]
+            }
+            
+            response = self.client.databases.query(
+                database_id=self.database_id,
+                filter=filter_query,
+                sorts=[{"property": "Порядок темы", "direction": "ascending"}]
+            )
+            
+            # Собираем информацию о темах
+            themes_dict = {}
+            for page in response.get("results", []):
+                properties = page.get("properties", {})
+                theme_order = self._extract_number(properties.get("Порядок темы", {}))
+                theme_name = self._extract_select(properties.get("Тема", {}))
+                
+                if theme_order > 0:
+                    if theme_order not in themes_dict:
+                        themes_dict[theme_order] = {
+                            "theme_name": theme_name,
+                            "theme_order": theme_order,
+                            "level": level,
+                            "total_tasks": 0
+                        }
+                    themes_dict[theme_order]["total_tasks"] += 1
+            
+            # Обрабатываем пагинацию
+            while response.get("has_more"):
+                response = self.client.databases.query(
+                    database_id=self.database_id,
+                    filter=filter_query,
+                    start_cursor=response.get("next_cursor"),
+                    sorts=[{"property": "Порядок темы", "direction": "ascending"}]
+                )
+                
+                for page in response.get("results", []):
+                    properties = page.get("properties", {})
+                    theme_order = self._extract_number(properties.get("Порядок темы", {}))
+                    theme_name = self._extract_select(properties.get("Тема", {}))
+                    
+                    if theme_order > 0:
+                        if theme_order not in themes_dict:
+                            themes_dict[theme_order] = {
+                                "theme_name": theme_name,
+                                "theme_order": theme_order,
+                                "level": level,
+                                "total_tasks": 0
+                            }
+                        themes_dict[theme_order]["total_tasks"] += 1
+            
+            # Сортируем по theme_order
+            themes_list = sorted(themes_dict.values(), key=lambda x: x["theme_order"])
+            
+            logger.info(f"📚 Retrieved {len(themes_list)} themes for {level}")
+            return themes_list
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to get all themes: {e}")
+            return []
+    
     def _parse_task(self, page: Dict[str, Any]) -> Task:
         """
         Парсинг страницы Notion в объект Task.
