@@ -295,7 +295,7 @@ class NotionClient:
                 })
             
             # Создаем запрос
-            query_params = {"database_id": self.database_id}
+            query_params = {}
             
             if filter_conditions:
                 if len(filter_conditions) == 1:
@@ -306,13 +306,19 @@ class NotionClient:
                     }
             
             # Выполняем запрос
-            response = self.client.databases.query(**query_params)
+            response = self.client.databases.query(
+                database_id=self.database_id,
+                **query_params
+            )
             count = len(response.get("results", []))
             
             # Обрабатываем пагинацию (если больше 100 результатов)
             while response.get("has_more"):
-                query_params["start_cursor"] = response.get("next_cursor")
-                response = self.client.databases.query(**query_params)
+                response = self.client.databases.query(
+                    database_id=self.database_id,
+                    start_cursor=response.get("next_cursor"),
+                    **query_params
+                )
                 count += len(response.get("results", []))
             
             filter_str = f" (level={level}, theme={theme})" if level or theme else ""

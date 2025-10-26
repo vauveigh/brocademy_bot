@@ -553,6 +553,36 @@ for field in required_fields:
 ---
 
 **Дата завершения:** 26 октября 2024  
+**Статус тестирования:** ✅ Все тесты пройдены успешно  
 **Следующий этап:** 2.2 - Получение заданий из Notion
+
+---
+
+## 🔧 Исправления
+
+### Fix: Метод `count_tasks()` (26.10.2024)
+
+**Проблема:** `AttributeError: 'DatabasesEndpoint' object has no attribute 'query'`
+
+**Причина:** Неправильная передача параметра `database_id` в метод `query`.
+
+**Решение:** Параметр `database_id` должен передаваться как отдельный именованный параметр, а не внутри `**query_params`.
+
+**Было:**
+```python
+query_params = {"database_id": self.database_id}
+response = self.client.databases.query(**query_params)
+```
+
+**Стало:**
+```python
+query_params = {}
+response = self.client.databases.query(
+    database_id=self.database_id,
+    **query_params
+)
+```
+
+**Результат:** ✅ Метод работает корректно, все тесты пройдены
 
 
