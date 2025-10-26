@@ -20,20 +20,29 @@
    - Временные оценки
    - Приоритеты и критерии завершения MVP
 
-3. **[NOTION_DB_STRUCTURE.md](NOTION_DB_STRUCTURE.md)** ⭐
+3. **[USER_FLOW.md](USER_FLOW.md)** 🎯
+   - Полная спецификация UX и логики взаимодействия
+   - Ключевые принципы (простота, автоматизация, лимит 3 задания/день)
+   - Детальный flow от регистрации до завершения темы
+   - Обработка всех типов ответов и переходов
+   - FSM states, inline клавиатуры, команды
+   - Утренние напоминания и статистика
+   - Чек-лист для реализации
+
+4. **[NOTION_DB_STRUCTURE.md](NOTION_DB_STRUCTURE.md)** ⭐
    - Полная структура полей базы данных Notion
    - Примеры заданий
    - Правила именования
    - Рекомендации по заполнению
    - Чеклисты для создания тем
 
-4. **[DATABASE_SCHEMA.md](DATABASE_SCHEMA.md)** ⭐
+5. **[DATABASE_SCHEMA.md](DATABASE_SCHEMA.md)** ⭐
    - Схема SQLite базы данных
    - Три таблицы: users, user_progress, user_answers
    - SQL запросы для аналитики
    - Скрипты миграции и бэкапа
 
-5. **[QUICK_START_NOTION.md](QUICK_START_NOTION.md)**
+6. **[QUICK_START_NOTION.md](QUICK_START_NOTION.md)**
    - Пошаговая инструкция настройки Notion
    - Создание API интеграции
    - Получение токенов и Database ID
