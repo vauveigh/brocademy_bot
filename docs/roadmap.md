@@ -73,11 +73,22 @@
 
 ## Этап 2: Интеграция с Notion API
 
-### 2.1. Создание Notion клиента
-- [ ] Создать файл `database/notion_client.py`
-- [ ] Реализовать инициализацию Notion клиента
-- [ ] Реализовать обработку ошибок подключения
-- [ ] Протестировать подключение к Notion
+### 2.1. Создание Notion клиента ✅
+- [X] Создать файл `database/notion_client.py`
+- [X] Реализовать инициализацию Notion клиента
+- [X] Реализовать обработку ошибок подключения
+- [X] Протестировать подключение к Notion
+- [X] Реализовать `test_connection()` - проверка подключения
+- [X] Реализовать `get_database_info()` - информация о БД
+- [X] Реализовать `get_database_properties()` - детали свойств
+- [X] Реализовать `count_tasks()` - подсчет заданий с фильтрацией
+- [X] Реализовать `get_available_levels()` - список уровней
+- [X] Реализовать `get_available_themes()` - список тем
+- [X] Добавить custom exceptions (NotionConnectionError, NotionDataError)
+- [X] Реализовать Singleton pattern через `get_notion_client()`
+- [X] Добавить детальное логирование
+- [X] Создать тестовый скрипт `test_notion_connection.py`
+- [X] Создать документацию NOTION_CLIENT_IMPLEMENTATION.md
 
 ### 2.2. Получение заданий из Notion
 - [ ] Реализовать `get_task(level, theme_order, day, task_number)` - получение конкретного задания

@@ -49,6 +49,35 @@
    - Тестирование подключения
    - FAQ
 
+### Реализация (Implementation Docs)
+
+7. **[DATABASE_IMPLEMENTATION.md](DATABASE_IMPLEMENTATION.md)** ✅ Этап 1.1
+   - SQLite база данных
+   - Таблицы users, user_progress, user_answers
+   - Индексы и оптимизация
+
+8. **[CRUD_IMPLEMENTATION.md](CRUD_IMPLEMENTATION.md)** ✅ Этап 1.2
+   - CRUD операции для пользователей
+   - Валидация данных
+   - Статистика пользователей
+
+9. **[PROGRESS_IMPLEMENTATION.md](PROGRESS_IMPLEMENTATION.md)** ✅ Этап 1.3
+   - Сохранение ответов
+   - Отслеживание прогресса
+   - Переходы между заданиями/днями/темами
+
+10. **[OPEN_ANSWERS_IMPLEMENTATION.md](OPEN_ANSWERS_IMPLEMENTATION.md)** ✅ Этап 1.4
+    - Работа с открытыми вопросами
+    - Очередь на проверку
+    - Управление статусами
+
+11. **[NOTION_CLIENT_IMPLEMENTATION.md](NOTION_CLIENT_IMPLEMENTATION.md)** ✅ Этап 2.1
+    - Notion API клиент
+    - Проверка подключения
+    - Получение информации о БД
+    - Подсчет заданий
+    - Обработка ошибок
+
 ## 🎯 Ключевые концепции
 
 ### Тематический цикл

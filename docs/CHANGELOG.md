@@ -50,6 +50,22 @@
 - Поддержка пагинации через параметр limit
 - Фильтрация ответов по статусу проверки (checked/unchecked/all)
 
+- **Notion API клиент (Этап 2.1)**:
+  - `NotionClient` класс для работы с Notion API
+  - `test_connection()` - проверка подключения к Notion
+  - `get_database_info()` - получение информации о базе данных
+  - `get_database_properties()` - детальная информация о свойствах БД
+  - `count_tasks()` - подсчет заданий с фильтрацией по уровню и теме
+  - `get_available_levels()` - список доступных уровней
+  - `get_available_themes()` - список доступных тем
+  - Полная обработка ошибок (unauthorized, object_not_found, timeout)
+  - Custom exceptions: `NotionConnectionError`, `NotionDataError`
+  - Singleton pattern для переиспользования клиента
+  - Автоматическая обработка пагинации (>100 результатов)
+  - Детальное логирование всех операций
+  - Тестовый скрипт `test_notion_connection.py`
+  - Интеграция с config.py для загрузки credentials
+
 ### Documentation
 - **USER_FLOW.md** - Полная спецификация UX и логики взаимодействия:
   - Ключевые принципы UX (простота, автоматизация, ограничение 3 задания/день)
@@ -69,10 +85,16 @@
   - 3.12-3.13: Проверка лимита и вспомогательные функции
   - 3.14-3.15: Обработка медиа и middleware
 - README.md дополнен разделом "⚡ Механика" с ключевыми принципами работы бота
+- **NOTION_CLIENT_IMPLEMENTATION.md** - Полная документация Notion клиента (Этап 2.1):
+  - Описание всех методов с примерами
+  - Обработка ошибок и troubleshooting
+  - Инструкции по тестированию
+  - Метрики производительности и лимиты API
+  - Примеры использования
 
 ### Planned
-- Этап 2: Notion API integration
-- Этап 3: Basic bot functionality
+- Этап 2.2-2.4: Получение заданий, работа с медиа, управление темами
+- Этап 3: Telegram Bot implementation
 
 ## [0.1.0] - 2024-10-26
 
