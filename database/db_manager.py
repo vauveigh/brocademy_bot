@@ -231,6 +231,314 @@ class DatabaseManager:
             raise
         finally:
             conn.close()
+    
+    # ==================== CRUD операции для пользователей ====================
+    
+    def create_user(self, user_id: int, username: Optional[str] = None, level: str = "Beginner") -> bool:
+        """
+        Создать нового пользователя в базе данных.
+        
+        Args:
+            user_id: Telegram ID пользователя
+            username: Telegram username пользователя (может быть None)
+            level: Уровень сложности (Beginner/Elementary/Advanced)
+            
+        Returns:
+            True если пользователь создан, False если уже существует
+            
+        Raises:
+            ValueError: Если level не является допустимым значением
+            sqlite3.Error: При ошибке БД
+            
+        Example:
+            >>> db = DatabaseManager()
+            >>> db.create_user(123456789, "john_doe", "Beginner")
+            True
+        """
+        # Валидация уровня
+        valid_levels = ["Beginner", "Elementary", "Advanced"]
+        if level not in valid_levels:
+            raise ValueError(f"Недопустимый уровень: {level}. Допустимые: {valid_levels}")
+        
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # Проверить, существует ли пользователь
+            cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,))
+            if cursor.fetchone():
+                logger.info(f"Пользователь {user_id} уже существует")
+                return False
+            
+            # Создать нового пользователя
+            cursor.execute("""
+                INSERT INTO users (user_id, username, level, current_day, theme_order, task_in_day)
+                VALUES (?, ?, ?, 1, 1, 1)
+            """, (user_id, username, level))
+            
+            conn.commit()
+            logger.info(f"✅ Создан пользователь: {user_id} ({username}) - уровень {level}")
+            return True
+            
+        except sqlite3.Error as e:
+            logger.error(f"❌ Ошибка при создании пользователя {user_id}: {e}")
+            raise
+        finally:
+            conn.close()
+    
+    def get_user(self, user_id: int) -> Optional[dict]:
+        """
+        Получить информацию о пользователе.
+        
+        Args:
+            user_id: Telegram ID пользователя
+            
+        Returns:
+            Словарь с данными пользователя или None если не найден
+            
+        Example:
+            >>> db = DatabaseManager()
+            >>> user = db.get_user(123456789)
+            >>> print(user['level'])
+            'Beginner'
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+            row = cursor.fetchone()
+            
+            if row:
+                return dict(row)
+            else:
+                logger.info(f"Пользователь {user_id} не найден")
+                return None
+                
+        except sqlite3.Error as e:
+            logger.error(f"❌ Ошибка при получении пользователя {user_id}: {e}")
+            raise
+        finally:
+            conn.close()
+    
+    def update_user_level(self, user_id: int, level: str) -> bool:
+        """
+        Обновить уровень сложности пользователя.
+        При смене уровня прогресс сбрасывается на начало.
+        
+        Args:
+            user_id: Telegram ID пользователя
+            level: Новый уровень (Beginner/Elementary/Advanced)
+            
+        Returns:
+            True если обновление успешно, False если пользователь не найден
+            
+        Raises:
+            ValueError: Если level не является допустимым значением
+            
+        Example:
+            >>> db = DatabaseManager()
+            >>> db.update_user_level(123456789, "Elementary")
+            True
+        """
+        # Валидация уровня
+        valid_levels = ["Beginner", "Elementary", "Advanced"]
+        if level not in valid_levels:
+            raise ValueError(f"Недопустимый уровень: {level}. Допустимые: {valid_levels}")
+        
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # Обновить уровень и сбросить прогресс
+            cursor.execute("""
+                UPDATE users 
+                SET level = ?,
+                    current_day = 1,
+                    theme_order = 1,
+                    task_in_day = 1,
+                    current_theme = NULL
+                WHERE user_id = ?
+            """, (level, user_id))
+            
+            if cursor.rowcount == 0:
+                logger.warning(f"Пользователь {user_id} не найден для обновления уровня")
+                return False
+            
+            conn.commit()
+            logger.info(f"✅ Уровень пользователя {user_id} изменен на {level}")
+            return True
+            
+        except sqlite3.Error as e:
+            logger.error(f"❌ Ошибка при обновлении уровня пользователя {user_id}: {e}")
+            raise
+        finally:
+            conn.close()
+    
+    def update_user_progress(
+        self, 
+        user_id: int, 
+        current_day: int = None,
+        current_theme: str = None,
+        theme_order: int = None,
+        task_in_day: int = None
+    ) -> bool:
+        """
+        Обновить прогресс пользователя.
+        
+        Args:
+            user_id: Telegram ID пользователя
+            current_day: Текущий день цикла (1-5)
+            current_theme: Название текущей темы
+            theme_order: Порядковый номер темы
+            task_in_day: Номер задания в дне (1-3)
+            
+        Returns:
+            True если обновление успешно, False если пользователь не найден
+            
+        Raises:
+            ValueError: Если значения вне допустимого диапазона
+            
+        Example:
+            >>> db = DatabaseManager()
+            >>> db.update_user_progress(123456789, current_day=2, task_in_day=1)
+            True
+        """
+        # Валидация
+        if current_day is not None and (current_day < 1 or current_day > 5):
+            raise ValueError(f"current_day должен быть от 1 до 5, получено: {current_day}")
+        if task_in_day is not None and (task_in_day < 1 or task_in_day > 3):
+            raise ValueError(f"task_in_day должен быть от 1 до 3, получено: {task_in_day}")
+        if theme_order is not None and theme_order < 1:
+            raise ValueError(f"theme_order должен быть >= 1, получено: {theme_order}")
+        
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # Построить динамический запрос только с переданными параметрами
+            update_fields = []
+            values = []
+            
+            if current_day is not None:
+                update_fields.append("current_day = ?")
+                values.append(current_day)
+            if current_theme is not None:
+                update_fields.append("current_theme = ?")
+                values.append(current_theme)
+            if theme_order is not None:
+                update_fields.append("theme_order = ?")
+                values.append(theme_order)
+            if task_in_day is not None:
+                update_fields.append("task_in_day = ?")
+                values.append(task_in_day)
+            
+            # Всегда обновляем last_task_date
+            update_fields.append("last_task_date = CURRENT_DATE")
+            
+            if not update_fields:
+                logger.warning("Нет полей для обновления")
+                return False
+            
+            values.append(user_id)
+            query = f"UPDATE users SET {', '.join(update_fields)} WHERE user_id = ?"
+            
+            cursor.execute(query, values)
+            
+            if cursor.rowcount == 0:
+                logger.warning(f"Пользователь {user_id} не найден для обновления прогресса")
+                return False
+            
+            conn.commit()
+            logger.info(f"✅ Прогресс пользователя {user_id} обновлен")
+            return True
+            
+        except sqlite3.Error as e:
+            logger.error(f"❌ Ошибка при обновлении прогресса пользователя {user_id}: {e}")
+            raise
+        finally:
+            conn.close()
+    
+    def get_user_stats(self, user_id: int) -> Optional[dict]:
+        """
+        Получить статистику пользователя.
+        
+        Args:
+            user_id: Telegram ID пользователя
+            
+        Returns:
+            Словарь со статистикой или None если пользователь не найден
+            
+        Example:
+            >>> db = DatabaseManager()
+            >>> stats = db.get_user_stats(123456789)
+            >>> print(f"Точность: {stats['accuracy']}%")
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # Получить базовую информацию о пользователе
+            cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+            user = cursor.fetchone()
+            
+            if not user:
+                logger.info(f"Пользователь {user_id} не найден")
+                return None
+            
+            # Получить статистику из user_progress
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) as total_tasks,
+                    SUM(CASE WHEN is_correct = 1 THEN 1 ELSE 0 END) as correct_tasks,
+                    SUM(CASE WHEN is_correct = 0 THEN 1 ELSE 0 END) as incorrect_tasks,
+                    SUM(CASE WHEN is_correct IS NULL THEN 1 ELSE 0 END) as unchecked_tasks
+                FROM user_progress
+                WHERE user_id = ?
+            """, (user_id,))
+            
+            progress_stats = cursor.fetchone()
+            
+            # Подсчитать процент правильных ответов
+            total = progress_stats['total_tasks'] or 0
+            correct = progress_stats['correct_tasks'] or 0
+            accuracy = round((correct / total * 100), 2) if total > 0 else 0.0
+            
+            # Получить количество непроверенных открытых вопросов
+            cursor.execute("""
+                SELECT COUNT(*) as unchecked_answers
+                FROM user_answers
+                WHERE user_id = ? AND checked = 0
+            """, (user_id,))
+            
+            unchecked = cursor.fetchone()['unchecked_answers']
+            
+            # Сформировать результат
+            stats = {
+                'user_id': user['user_id'],
+                'username': user['username'],
+                'level': user['level'],
+                'current_day': user['current_day'],
+                'current_theme': user['current_theme'],
+                'theme_order': user['theme_order'],
+                'task_in_day': user['task_in_day'],
+                'started_at': user['started_at'],
+                'last_task_date': user['last_task_date'],
+                'total_tasks_completed': total,
+                'correct_tasks': correct,
+                'incorrect_tasks': progress_stats['incorrect_tasks'] or 0,
+                'unchecked_tasks': progress_stats['unchecked_tasks'] or 0,
+                'accuracy': accuracy,
+                'unchecked_open_answers': unchecked
+            }
+            
+            return stats
+            
+        except sqlite3.Error as e:
+            logger.error(f"❌ Ошибка при получении статистики пользователя {user_id}: {e}")
+            raise
+        finally:
+            conn.close()
 
 
 def init_database(db_path: str = "bot_database.db") -> None:

@@ -48,12 +48,12 @@
 - [X] Протестировать создание базы данных
 
 ### 1.2. CRUD операции для пользователей
-- [ ] Реализовать `create_user(user_id, username, level)`
-- [ ] Реализовать `get_user(user_id)`
-- [ ] Реализовать `update_user_level(user_id, level)`
-- [ ] Реализовать `update_user_progress(user_id, current_day, theme_order, task_in_day)`
-- [ ] Реализовать `get_user_stats(user_id)` - статистика пользователя
-- [ ] Протестировать все функции
+- [X] Реализовать `create_user(user_id, username, level)`
+- [X] Реализовать `get_user(user_id)`
+- [X] Реализовать `update_user_level(user_id, level)`
+- [X] Реализовать `update_user_progress(user_id, current_day, theme_order, task_in_day)`
+- [X] Реализовать `get_user_stats(user_id)` - статистика пользователя
+- [X] Протестировать все функции
 
 ### 1.3. Работа с прогрессом
 - [ ] Реализовать `save_task_answer(user_id, task_id, task_type, answer, is_correct)`
