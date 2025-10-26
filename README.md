@@ -170,6 +170,7 @@ python -m web.app
 
 ### Реализация (Stage 2: Notion API)
 - **[NOTION_CLIENT_IMPLEMENTATION.md](docs/NOTION_CLIENT_IMPLEMENTATION.md)** - ✅ Notion API клиент (Этап 2.1)
+- **[TASK_RETRIEVAL_IMPLEMENTATION.md](docs/TASK_RETRIEVAL_IMPLEMENTATION.md)** - ✅ Получение заданий из Notion (Этап 2.2)
 
 ### Структура данных
 - **[NOTION_DB_STRUCTURE.md](docs/NOTION_DB_STRUCTURE.md)** - Детальная структура базы данных Notion

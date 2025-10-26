@@ -15,6 +15,7 @@ Date: 2024-10-26
 
 import logging
 from typing import Optional, Dict, Any, List
+from dataclasses import dataclass
 from notion_client import Client
 from notion_client.errors import APIResponseError, RequestTimeoutError
 
@@ -27,6 +28,77 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class Task:
+    """
+    Класс для представления задания из Notion.
+    
+    Attributes:
+        task_id (str): ID задания (например, "BEG-FAMILY-D1-G1")
+        theme (str): Название темы (например, "Family and Friends")
+        theme_order (int): Порядковый номер темы (1, 2, 3...)
+        level (str): Уровень сложности (Beginner/Elementary/Advanced)
+        task_type (str): Тип задания (grammar/reading/vocabulary/situations/review)
+        day (int): День цикла (1-5)
+        task_number (int): Номер задания в дне (1-3)
+        question (str): Текст вопроса
+        answer_type (str): Тип ответа (multiple_choice/open_question)
+        answer_options (List[str]): Варианты ответов (для multiple_choice)
+        correct_answer (str): Правильный ответ
+        explanation (Optional[str]): Объяснение (может быть None)
+        media_url (Optional[str]): URL медиафайла (может быть None)
+        media_type (str): Тип медиа (none/image/audio/video)
+        status (str): Статус задания (active/draft/archived)
+        notion_page_id (str): ID страницы в Notion (для обратной связи)
+        
+    Example:
+        >>> task = Task(
+        ...     task_id="BEG-FAMILY-D1-G1",
+        ...     theme="Family and Friends",
+        ...     level="Beginner",
+        ...     question="Choose the correct answer",
+        ...     answer_options=["my", "mine", "me", "I"],
+        ...     correct_answer="my"
+        ... )
+    """
+    task_id: str
+    theme: str
+    theme_order: int
+    level: str
+    task_type: str
+    day: int
+    task_number: int
+    question: str
+    answer_type: str
+    answer_options: List[str]
+    correct_answer: str
+    explanation: Optional[str]
+    media_url: Optional[str]
+    media_type: str
+    status: str
+    notion_page_id: str
+    
+    def has_media(self) -> bool:
+        """Проверить, есть ли медиафайл у задания."""
+        return self.media_type != "none" and self.media_url is not None
+    
+    def is_multiple_choice(self) -> bool:
+        """Проверить, является ли задание с выбором ответа."""
+        return self.answer_type == "multiple_choice"
+    
+    def is_open_question(self) -> bool:
+        """Проверить, является ли задание открытым вопросом."""
+        return self.answer_type == "open_question"
+    
+    def has_explanation(self) -> bool:
+        """Проверить, есть ли объяснение у задания."""
+        return self.explanation is not None and self.explanation.strip() != ""
+    
+    def __str__(self) -> str:
+        """Строковое представление задания."""
+        return f"Task({self.task_id}, {self.theme}, Day {self.day}, #{self.task_number})"
 
 
 class NotionConnectionError(Exception):
@@ -392,6 +464,224 @@ class NotionClient:
             logger.error(f"❌ Failed to get available themes: {e}")
             return []
     
+    def get_task(
+        self,
+        level: str,
+        theme_order: int,
+        day: int,
+        task_number: int
+    ) -> Optional[Task]:
+        """
+        Получить конкретное задание из Notion.
+        
+        Args:
+            level: Уровень сложности (Beginner/Elementary/Advanced)
+            theme_order: Порядковый номер темы
+            day: День цикла (1-5)
+            task_number: Номер задания в дне (1-3)
+            
+        Returns:
+            Объект Task или None если задание не найдено.
+            
+        Raises:
+            NotionDataError: Если произошла ошибка при получении задания.
+            
+        Example:
+            >>> notion = NotionClient()
+            >>> task = notion.get_task("Beginner", 1, 1, 1)
+            >>> if task:
+            ...     print(f"Task: {task.question}")
+            ...     print(f"Options: {task.answer_options}")
+        """
+        try:
+            # Формируем фильтр для поиска задания
+            # Все числовые поля используют number filter
+            filter_query = {
+                "and": [
+                    {"property": "Уровень", "select": {"equals": level}},
+                    {"property": "Порядок темы", "number": {"equals": theme_order}},
+                    {"property": "День цикла", "number": {"equals": day}},
+                    {"property": "Номер в дне", "number": {"equals": task_number}},
+                    {"property": "Статус", "select": {"equals": "active"}}
+                ]
+            }
+            
+            # Выполняем запрос
+            response = self.client.databases.query(
+                database_id=self.database_id,
+                filter=filter_query
+            )
+            
+            results = response.get("results", [])
+            
+            if not results:
+                logger.warning(
+                    f"⚠️ Task not found: {level}, theme #{theme_order}, "
+                    f"day {day}, task {task_number}"
+                )
+                return None
+            
+            if len(results) > 1:
+                logger.warning(
+                    f"⚠️ Multiple tasks found ({len(results)}), using first one"
+                )
+            
+            # Парсим первое найденное задание
+            page = results[0]
+            task = self._parse_task(page)
+            
+            logger.info(f"✅ Task retrieved: {task.task_id}")
+            return task
+            
+        except APIResponseError as e:
+            error_msg = f"Failed to get task: {e.code} - {str(e)}"
+            logger.error(f"❌ {error_msg}")
+            raise NotionDataError(error_msg)
+            
+        except Exception as e:
+            error_msg = f"Unexpected error getting task: {e}"
+            logger.error(f"❌ {error_msg}")
+            raise NotionDataError(error_msg)
+    
+    def get_theme_info(self, level: str, theme_order: int) -> Optional[Dict[str, Any]]:
+        """
+        Получить информацию о теме.
+        
+        Args:
+            level: Уровень сложности
+            theme_order: Порядковый номер темы
+            
+        Returns:
+            Словарь с информацией о теме:
+            {
+                "theme_name": "Family and Friends",
+                "theme_order": 1,
+                "level": "Beginner",
+                "total_tasks": 15
+            }
+            Или None если тема не найдена.
+            
+        Example:
+            >>> notion = NotionClient()
+            >>> theme_info = notion.get_theme_info("Beginner", 1)
+            >>> if theme_info:
+            ...     print(f"Theme: {theme_info['theme_name']}")
+        """
+        try:
+            # Получаем любое задание этой темы для извлечения названия
+            filter_query = {
+                "and": [
+                    {"property": "Уровень", "select": {"equals": level}},
+                    {"property": "Порядок темы", "number": {"equals": theme_order}},
+                    {"property": "Статус", "select": {"equals": "active"}}
+                ]
+            }
+            
+            response = self.client.databases.query(
+                database_id=self.database_id,
+                filter=filter_query,
+                page_size=1  # Нам нужна только одна запись
+            )
+            
+            results = response.get("results", [])
+            
+            if not results:
+                logger.warning(
+                    f"⚠️ Theme not found: {level}, theme order {theme_order}"
+                )
+                return None
+            
+            # Извлекаем название темы из первой записи
+            page = results[0]
+            properties = page.get("properties", {})
+            
+            theme_name = self._extract_select(properties.get("Тема", {}))
+            
+            # Подсчитываем общее количество заданий темы
+            total_response = self.client.databases.query(
+                database_id=self.database_id,
+                filter=filter_query
+            )
+            total_tasks = len(total_response.get("results", []))
+            
+            theme_info = {
+                "theme_name": theme_name,
+                "theme_order": theme_order,
+                "level": level,
+                "total_tasks": total_tasks
+            }
+            
+            logger.info(
+                f"📖 Theme info: '{theme_name}' (order {theme_order}, "
+                f"{total_tasks} tasks)"
+            )
+            return theme_info
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to get theme info: {e}")
+            return None
+    
+    def _parse_task(self, page: Dict[str, Any]) -> Task:
+        """
+        Парсинг страницы Notion в объект Task.
+        
+        Args:
+            page: Объект страницы из Notion API
+            
+        Returns:
+            Объект Task с заполненными полями
+        """
+        properties = page.get("properties", {})
+        page_id = page.get("id", "")
+        
+        # Извлекаем все поля
+        task_id = self._extract_title(properties.get("ID задания", {}).get("title", []))
+        theme = self._extract_select(properties.get("Тема", {}))
+        theme_order = self._extract_number(properties.get("Порядок темы", {}))
+        level = self._extract_select(properties.get("Уровень", {}))
+        task_type = self._extract_select(properties.get("Тип задания", {}))
+        day = self._extract_number(properties.get("День цикла", {}))
+        task_number = self._extract_number(properties.get("Номер в дне", {}))
+        question = self._extract_rich_text(properties.get("Вопрос", {}))
+        answer_type = self._extract_select(properties.get("Тип ответа", {}))
+        answer_options_raw = self._extract_rich_text(properties.get("Варианты ответов", {}))
+        correct_answer = self._extract_rich_text(properties.get("Правильный ответ", {}))
+        explanation = self._extract_rich_text(properties.get("Объяснение", {}))
+        media_url = self._extract_url(properties.get("URL медиа", {}))
+        media_type = self._extract_select(properties.get("Тип медиа", {}))
+        status = self._extract_select(properties.get("Статус", {}))
+        
+        # Обработка вариантов ответа (split по "|")
+        answer_options = []
+        if answer_options_raw:
+            answer_options = [
+                option.strip()
+                for option in answer_options_raw.split("|")
+                if option.strip()
+            ]
+        
+        # Создаем объект Task
+        task = Task(
+            task_id=task_id,
+            theme=theme,
+            theme_order=theme_order,
+            level=level,
+            task_type=task_type,
+            day=day,
+            task_number=task_number,
+            question=question,
+            answer_type=answer_type,
+            answer_options=answer_options,
+            correct_answer=correct_answer,
+            explanation=explanation if explanation else None,
+            media_url=media_url if media_url else None,
+            media_type=media_type,
+            status=status,
+            notion_page_id=page_id
+        )
+        
+        return task
+    
     @staticmethod
     def _extract_title(title_array: List[Dict]) -> str:
         """
@@ -411,6 +701,72 @@ class NotionClient:
             item.get("plain_text", "")
             for item in title_array
         )
+    
+    @staticmethod
+    def _extract_rich_text(property_data: Dict[str, Any]) -> str:
+        """
+        Извлечь текст из rich_text поля Notion.
+        
+        Args:
+            property_data: Данные rich_text свойства
+            
+        Returns:
+            Извлеченный текст или пустая строка
+        """
+        rich_text_array = property_data.get("rich_text", [])
+        if not rich_text_array:
+            return ""
+        
+        return "".join(
+            item.get("plain_text", "")
+            for item in rich_text_array
+        )
+    
+    @staticmethod
+    def _extract_select(property_data: Dict[str, Any]) -> str:
+        """
+        Извлечь значение из select поля Notion.
+        
+        Args:
+            property_data: Данные select свойства
+            
+        Returns:
+            Выбранное значение или пустая строка
+        """
+        select_data = property_data.get("select")
+        if select_data and isinstance(select_data, dict):
+            return select_data.get("name", "")
+        return ""
+    
+    @staticmethod
+    def _extract_number(property_data: Dict[str, Any]) -> int:
+        """
+        Извлечь число из number поля Notion.
+        
+        Args:
+            property_data: Данные number свойства
+            
+        Returns:
+            Число или 0
+        """
+        number = property_data.get("number")
+        if number is not None:
+            return int(number)
+        return 0
+    
+    @staticmethod
+    def _extract_url(property_data: Dict[str, Any]) -> Optional[str]:
+        """
+        Извлечь URL из url поля Notion.
+        
+        Args:
+            property_data: Данные url свойства
+            
+        Returns:
+            URL или None
+        """
+        url = property_data.get("url")
+        return url if url else None
 
 
 # Singleton instance
@@ -518,6 +874,52 @@ if __name__ == "__main__":
         for level in levels:
             level_tasks = notion.count_tasks(level=level)
             print(f"   📚 {level}: {level_tasks} tasks")
+        print()
+        
+        # Тестирование получения задания
+        print("8️⃣ Testing task retrieval...")
+        if total_tasks > 0 and levels:
+            # Пробуем получить первое задание первой темы первого уровня
+            test_level = levels[0]
+            test_task = notion.get_task(test_level, 1, 1, 1)
+            
+            if test_task:
+                print(f"   ✅ Task retrieved successfully!")
+                print(f"   📝 ID: {test_task.task_id}")
+                print(f"   📚 Theme: {test_task.theme}")
+                print(f"   ❓ Question: {test_task.question[:60]}...")
+                print(f"   🎯 Type: {test_task.answer_type}")
+                if test_task.is_multiple_choice():
+                    print(f"   📋 Options: {len(test_task.answer_options)} variants")
+                    print(f"      {' | '.join(test_task.answer_options[:3])}")
+                print(f"   ✅ Correct answer: {test_task.correct_answer}")
+                if test_task.has_explanation():
+                    print(f"   💡 Has explanation: Yes")
+                if test_task.has_media():
+                    print(f"   🎨 Media: {test_task.media_type}")
+            else:
+                print("   ⚠️  No task found (theme 1, day 1, task 1)")
+                print("   💡 Add tasks to Notion to test task retrieval")
+        else:
+            print("   ⏭️  Skipped (no tasks in database)")
+        print()
+        
+        # Тестирование получения информации о теме
+        print("9️⃣ Testing theme info retrieval...")
+        if total_tasks > 0 and levels:
+            test_level = levels[0]
+            theme_info = notion.get_theme_info(test_level, 1)
+            
+            if theme_info:
+                print(f"   ✅ Theme info retrieved successfully!")
+                print(f"   📖 Theme name: {theme_info['theme_name']}")
+                print(f"   🔢 Theme order: {theme_info['theme_order']}")
+                print(f"   📚 Level: {theme_info['level']}")
+                print(f"   📊 Total tasks: {theme_info['total_tasks']}")
+            else:
+                print("   ⚠️  Theme info not found")
+        else:
+            print("   ⏭️  Skipped (no tasks in database)")
         print()
         
         # Итоговая информация
